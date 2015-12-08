@@ -2283,4 +2283,78 @@
 		$dir->close();
 		return rmdir($dirname);
 	}
+	
+	 /**
+	 * Return array of primary maintainers for given site, including full names and emails.
+	 *
+	 * The structure of the returned array is as follows:
+	 *	array
+	 *		['string']	Value of "primary maintainer" field of site, for cache check.
+	 *		['users']	Array of users.
+	 *			['username']	Array of values about user of given 'username'.
+	 *				['full_name']	Full name of user, or username if not obtained.
+	 *				['email']	Email of user, empty string if not obtained.
+	 *			...
+	 *
+	 * @author  Nicholas Mischler
+	 * @param	mixed	$site site entity or ID
+	 * @return	mixed	array containing string list of users and array of user data, NULL on failure
+	 */
+	function get_primary_maintainers_of_site($site)
+	{
+		if(is_numeric($site))
+			$site = new entity($site);
+			
+		// ensure given id is for a site entity
+		if (reason_is_entity($site, 'site'))
+		{
+			$maintainers = $site->get_value('primary_maintainer');
+			// check for maintainers--only go forward if there is one
+			if( !empty($maintainers) ) 
+			{
+				// check cache and get values
+				$unique_string = 'primary_maintainer_'.$site->id();
+				$cache = new ReasonObjectCache($unique_string, 86400); //1 day
+				$obj =& $cache->fetch();
+				
+				/*	Either of the following conditions will fire the ldap->reason sync:
+					1: the cached info is expired (fetch returns value of false)
+					2: the primary maintainers have been changed since the last cache sync. */
+				if (empty($obj) || $obj['string'] != $maintainers)
+				{
+					$pm_values = array( 'string' => $maintainers, 'users' => array());
+					$pms = explode(', ', $maintainers);
+					$dir = new directory_service();
+					foreach ($pms as $pm) {
+						if ($dir->search_by_attribute('ds_username', $pm, array('ds_email','ds_fullname')))
+						{
+							$full_name = $dir->get_first_value('ds_fullname');
+							// lets fall back to username if a valid full name is not found for the user
+							$full_name = (!carl_empty_html($full_name)) ? $full_name : trim(strip_tags($pm));
+							$pm_values['users'][$pm] = array();
+							$pm_values['users'][$pm]['full_name'] = $full_name;
+							$pm_values['users'][$pm]['email'] = $dir->get_first_value('ds_email');
+						}
+					}
+					$cache->set($pm_values);
+					return $pm_values;
+				}
+				else
+				{
+					return $obj;
+				}
+			}
+			else 
+			{
+				trigger_error('Site with id of '.$site_id.' ('.$site->get_value('name').') does not have primary maintainers set.');
+				return NULL;
+			}
+		}
+		else
+		{
+			trigger_error('ID given to get_primary_maintainers_of_site ('.$site_id.') does not correspond to an entity that is a Site.');
+			return NULL;
+		}
+	}
+	
 ?>
