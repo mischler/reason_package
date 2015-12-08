@@ -66,10 +66,11 @@
 
 			// make the form easier to read
 			$this->change_element_type( 'short_department_name','hidden');
+			$this->set_display_name( 'primary_maintainer','Primary Maintainers');
 			$this->set_display_name( 'department','Department Code/ID');
 			$this->set_display_name( 'custom_url_handler','Custom URL Handler');
 			$this->set_display_name( 'use_page_caching', 'Page Caching' );
-			$this->set_comments( 'primary_maintainer',form_comment('Username of maintainer') );
+			$this->set_comments( 'primary_maintainer',form_comment('Usernames of site\'s primary maintainers as a list separated by commas<br />Example: smithj, williamsm, johnsond') );
 			$this->set_comments( 'base_url',form_comment( 'Path to your site.<br />eg: /campus/multicultural<br /><span style="color: #f33"><strong>Warning:</strong> If a site already occupies the URL, it will get clobbered.</span>' ) );
 			$this->set_comments( 'department',form_comment('(If integrated) The office or department code or ID in central information system (e.g. LDAP, etc.)') );
 			//$this->set_comments( 'custom_url_handler', form_comment('Give a descriptive value if this site will NOT use Reason\'s default URL management code.') );
@@ -210,8 +211,11 @@
 			{
 				// Make sure the primary maintainer exists in the directory
 				$dir = new directory_service();
-				if (!$dir->search_by_attribute('ds_username', $this->get_value('primary_maintainer')))
-					$this->set_error( 'primary_maintainer','Invalid username for primary maintainer' );
+				$pms = explode(', ', $this->get_value('primary_maintainer'));
+				foreach ($pms as $pm) {
+				if (!$dir->search_by_attribute('ds_username', $pm))
+					$this->set_error( 'primary_maintainer','Invalid username for given primary maintainer "'.$pm.'"' );
+				}
 			}
 
 			// check for spaces
@@ -278,12 +282,17 @@
 
 				// add the logged in user to the site
 				create_relationship( $site_id, $this->admin_page->user_id, relationship_id_of( 'site_to_user' ) );
-				if($this->get_value( 'primary_maintainer' ))
+				
+				// add the primary maintainer(s) to the site
+				if($this->get_value( 'primary_maintainer' )) // always true, given field is required? -NM
 				{
-					$primary_maintainer_user_id = get_user_id( $this->get_value( 'primary_maintainer' ) );
-					if( !empty($primary_maintainer_user_id) && $primary_maintainer_user_id != $this->admin_page->user_id )
-					{
-						create_relationship( $site_id, $primary_maintainer_user_id , relationship_id_of( 'site_to_user' ) );
+					$pms = explode(', ', $this->get_value('primary_maintainer'));
+					foreach ($pms as $pm) {
+						$primary_maintainer_user_id = get_user_id( $pm );
+						if( !empty($primary_maintainer_user_id) && $primary_maintainer_user_id != $this->admin_page->user_id )
+						{
+							create_relationship( $site_id, $primary_maintainer_user_id , relationship_id_of( 'site_to_user' ) );
+						}
 					}
 				}
 				
