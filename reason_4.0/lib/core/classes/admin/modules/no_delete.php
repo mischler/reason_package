@@ -77,8 +77,21 @@
 				echo '<ul>'."\n";
 				foreach($this->borrowed_by as $site)
 				{
+					$pm_values = get_primary_maintainers_of_site($site);
+					$site_maintainers = '<ul>';
+					
+					foreach ($pm_values['users'] as $username => $user_values) {
+						$site_maintainers .= '<li>'.$user_values['full_name'];
+						if (!empty($user_values['email']))
+						{
+							$site_maintainers .= '(<a href="mailto:'.$user_values['email'].'" title="send email">'.$user_values['email'].'</a>)';
+						}
+						$site_maintainers .= '</li>';
+					}
+					$site_maintainers .= '</ul>';
+					
 					echo '<li><a href="'.$site->get_value('base_url').'">'.$site->get_value('name').'</a>'."\n";
-					echo '<div>Primary maintainer: '.$site->get_value('name_cache').', <a href="mailto:'.$site->get_value('email_cache').'" title="send email">'.$site->get_value('email_cache').'</a></div></li>'."\n";
+					echo '<div>Primary maintainers: '.$site_maintainers.'</div></li>'."\n";
 				}
 				echo '</ul>'."\n";
 			}
