@@ -100,78 +100,34 @@
 		function _get_maintainer_html()
 		{
 			$html = '';
-			// check for a maintainer--only go forward if there is one
-			$maintainer = $this->parent->site_info->get_value('primary_maintainer');
-			if( !empty($maintainer) )
+			$pm_values = get_primary_maintainers_of_site($this->site_id);
+			
+			// make sure we have maintainer values--only go forward if there is one
+			if( !empty($pm_values) )
 			{
-				
-				$maintainer_info = $this->_get_maintainer_info($maintainer);
-				if (!empty($maintainer_info['full_name']))
-				{
-					if(!empty($maintainer_info['email']))
-						$html = '<a href="mailto:'.htmlspecialchars($maintainer_info['email'],ENT_QUOTES,'UTF-8').'">'.htmlspecialchars($maintainer_info['full_name'],ENT_QUOTES,'UTF-8').'</a>';
+				// build HTML for all primary maintainers
+				foreach ($pm_values['users'] as $username => $user_values) {
+					
+					$full_name = $user_values['full_name'];
+					$email = $user_values['email'];
+					
+					if (!empty($full_name))
+					{
+						if(!empty($email))
+							$html .= '<a href="mailto:'.htmlspecialchars($email,ENT_QUOTES,'UTF-8').'">'.htmlspecialchars($full_name,ENT_QUOTES,'UTF-8').'</a>';
+						else
+							$html .= $full_name;
+					}
 					else
-						$html = $maintainer_info['full_name'];
+					{
+						trigger_error('Could not identify site maintainer - check to make sure username - ' . $username . ' - is valid');
+						$html .= $username;
+					}
+					$html .= ', ';
 				}
-				else
-				{
-					trigger_error('Could not identify site maintainer - check to make sure username - ' . $maintainer . ' - is valid');
-					$html = $maintainer;
-				}
+				$html = substr($html, 0, -2); //strip extra comma-space from list
 			}
 			return $html;
-		}
-		function _get_maintainer_info($maintainer)
-		{
-			// Check to see if it's before or after 7 am, and set the last colleague->ldap sync time appropriately.
-				
-			if(carl_date('G') < 7) // it's before 7am
-			{
-				$ldap_last_sync_time = strtotime('7 am yesterday');
-			}
-			else // it's after 7 am
-			{
-				$ldap_last_sync_time = strtotime('7 am today');
-			}
-				
-			/*	Either of the following conditions will fire the ldap->reason sync:
-				1: the cached info predates the last colleague->ldap sync (presumed to be daily by 7 am.)
-				2: the primary maintainer has been changed since the last ldap->reason sync. */
-					
-			if($this->parent->site_info->get_value('cache_last_updated') <= date('Y-m-d', $ldap_last_sync_time) 
-				|| $this->parent->site_info->get_value('username_cache') != $this->parent->site_info->get_value('primary_maintainer') )
-			{					
-				$dir = new directory_service();
-				if ($dir->search_by_attribute('ds_username', $maintainer, array('ds_email','ds_fullname')))
-				{
-					$email = $dir->get_first_value('ds_email');
-					$full_name = $dir->get_first_value('ds_fullname');
-					// lets fall back to the maintainer username if a valid full name is not found for the user
-					$full_name = (!carl_empty_html($full_name)) ? $full_name : trim(strip_tags($maintainer));
-					$values = array('email_cache'=>$email, 'name_cache'=>$full_name, 'cache_last_updated'=>date('Y-m-d H:i:s'), 'username_cache'=>$maintainer);
-					$update_vals = array('ldap_cache'=>$values);
-					
-					reason_include_once( 'function_libraries/admin_actions.php' );
-					
-					/* I know this is nonstandard, but it's the only way right now 
-					to update the entity without creating an archive and changing 
-					the last_updated field on all the sites every day... */
-					
-					$sqler = new SQLER;
-					foreach( $update_vals AS $table => $fields )
-					{
-						$sqler->update_one( $table, $fields, $this->parent->site_info->id() );
-					}
-					
-				}
-			}
-			//If info cached on site is new, don't do ldap stuff-just grab off of site info
-			else
-			{
-				$email = $this->parent->site_info->get_value('email_cache');
-				$full_name = $this->parent->site_info->get_value('name_cache');
-			}
-			return array('email'=>$email,'full_name'=>$full_name);
 		}
 		function _get_last_modified_date_html()
 		{
