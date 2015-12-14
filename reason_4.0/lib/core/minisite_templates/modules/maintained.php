@@ -16,15 +16,8 @@
 	/**
 	 * A minisite module that displays information about who maintains the site & when the page was last updated
 	 *
-	 * Note that this module uses the Reason site entity to cache the contact information of the primary maintainer.
-	 * It does this to avoid potentially expensive directory service lookups on each page hit.
-	 *
-	 * This cache is renewed each day at 7:00 am, so if the underlying directory information changes during the day,
-	 * it won't show up until 7:00 am the next morning.
-	 *
 	 * @todo Rework to remove reference to the template
 	 * @todo Figure out how to reliably report on last modified times if this module is not run last
-	 * @todo Use standard Reason caching instead of writing to the site entity
 	 * @todo Allow setting of social media view
 	 */
 	class MaintainedModule extends DefaultMinisiteModule
