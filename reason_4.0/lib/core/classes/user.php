@@ -376,18 +376,23 @@ class user
 	}
 	
 	/**
-	 * gets the user entity of the primary maintainer of a site
+	 * returns an array of user entities designated as primary maintainers of a site
 	 * @param site_id
 	 * @return mixed user entity of primary maintainer or false
  	 */
-	function get_primary_maintainer($site_id = '')
+	function get_primary_maintainers($site_id = '')
 	{
 		if (empty($site_id)) $site_id = $this->site_id;
 		if ($this->validate_site_id($site_id))
 		{
 			$e = new entity($site_id);
-			$primary_maintainer = $e->get_value( 'primary_maintainer' );
-			return $this->get_user($primary_maintainer);
+			$pms = explode(', ', $e->get_value('primary_maintainer'));
+			$primary_maintainers = array();
+			foreach ($pms as $pm) {
+				//function assumes site CM limits to valid names
+				$primary_maintainers[] = $this->get_user($primary_maintainer);
+			}
+			return $primary_maintainers;
 		}
 		else 
 		{
@@ -397,27 +402,44 @@ class user
 	}
 
 	/**
-	 * Changes the primary maintainer of a site to the provided netID
-	 * @param string $user_netID must be current user of the site
-	 * @param int $site_id
-	 * @return boolean
+	 * Adds the provided netID to the list of primary maintainers of a site
+	 * @param string $user_netID must be a current user of the site
+	 * @param int $site_id 
+	 * @param boolean $replace_current_maintainers 
+	 * @return boolean true when site's primary maintainers are changed, else false
 	 */
-	function make_user_primary_maintainer($user_netID, $site_id = '')
+	function make_user_primary_maintainer($user_netID, $site_id = '', $replace_current_maintainers = false)
 	{
 		if (empty($site_id)) $site_id = $this->site_id;
 		if ($this->is_site_user($user_netID, $site_id, true))
 		{
 			$e = new entity($site_id);
-			$primary_maintainer = $e->get_value( 'primary_maintainer' );
-			if ($user_netID != $primary_maintainer)
+			if ($replace_current_maintainers) 
 			{
-				$values = array ('primary_maintainer' => $user_netID);
-           		if (reason_update_entity( $e->id(), get_user_id($this->causal_agent), $values, true) )
+				$primary_maintainer = $e->get_value( 'primary_maintainer' );
+				if ($user_netID != $primary_maintainer)
 				{
-					unset ($this->sites); // blow about sites array as primary_maintainer is no longer reliable
-					return true;
+					$values = array ('primary_maintainer' => $user_netID);
 				}
 			}
+			else //just adding name to the list
+			{
+				$pms = explode(', ', $e->get_value('primary_maintainer'));
+				if (!in_array($user_netID, $pms)) 
+				{
+					$pms[] = $user_netID;
+					$values = array ('primary_maintainer' => implode(', ', $pms));
+				}
+			}
+			if (!empty($values))
+			{
+				if (reason_update_entity( $e->id(), get_user_id($this->causal_agent), $values, true) )
+					{
+						unset ($this->sites); // blow about sites array as primary_maintainer is no longer reliable
+						return true;
+					}
+			}
+			
 		}
 		return false;
 	}
